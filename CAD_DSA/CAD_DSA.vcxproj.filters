@@ -86,4 +86,24 @@
       <Filter>Input</Filter>
     </Text>
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="Input\BooleanOperationOnPolygons.png">
+      <Filter>Input</Filter>
+    </Image>
+    <Image Include="Input\FillingProblem.png">
+      <Filter>Input</Filter>
+    </Image>
+    <Image Include="Input\Maze_Solver.png">
+      <Filter>Input</Filter>
+    </Image>
+    <Image Include="Input\PlacementOfGuardsProblem.png">
+      <Filter>Input</Filter>
+    </Image>
+    <Image Include="Input\PointMembershipClassification.png">
+      <Filter>Input</Filter>
+    </Image>
+    <Image Include="Input\ToolTrajectoryPlanning.png">
+      <Filter>Input</Filter>
+    </Image>
+  </ItemGroup>
 </Project>

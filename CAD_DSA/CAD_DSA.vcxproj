@@ -156,6 +156,14 @@
     <Text Include="Input\MazeSolver.txt" />
     <Text Include="Input\PlacementOfGuardProblem.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="Input\BooleanOperationOnPolygons.png" />
+    <Image Include="Input\FillingProblem.png" />
+    <Image Include="Input\Maze_Solver.png" />
+    <Image Include="Input\PlacementOfGuardsProblem.png" />
+    <Image Include="Input\PointMembershipClassification.png" />
+    <Image Include="Input\ToolTrajectoryPlanning.png" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
