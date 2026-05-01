@@ -262,14 +262,11 @@ namespace Primitives
         // =========================
         // Bounding box
         // =========================
-        void BoundingBox(Point2D<T>& minPt, Point2D<T>& maxPt) const
+        Rect<T> BoundingBox() const
         {
-            minPt = Point2D<T>(
+            return Rect<T>(
                 std::min(m_Start.GetX(), m_End.GetX()),
-                std::min(m_Start.GetY(), m_End.GetY())
-            );
-
-            maxPt = Point2D<T>(
+                std::min(m_Start.GetY(), m_End.GetY()),
                 std::max(m_Start.GetX(), m_End.GetX()),
                 std::max(m_Start.GetY(), m_End.GetY())
             );
