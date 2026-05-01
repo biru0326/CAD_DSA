@@ -29,5 +29,17 @@ namespace Primitives
         T getYMin() const { return m_yMin; }
         T getXMax() const { return m_xMax; }
         T getYMax() const { return m_yMax; }
+
+        bool overlaps(const Rect<T>& other) const
+        {
+            // No overlap cases
+            if (m_xMax < other.m_xMin || other.m_xMax < m_xMin)
+                return false;
+    
+            if (m_yMax < other.m_yMin || other.m_yMax < m_yMin)
+                return false;
+    
+            return true;
+        }
     };
 }
