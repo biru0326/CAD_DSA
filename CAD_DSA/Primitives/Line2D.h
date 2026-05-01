@@ -186,6 +186,22 @@ namespace Primitives
             return std::acos(d);
         }
 
+        double AngleWithFull(const Line2D& other) const
+        {
+            Point2D<T> d1 = Direction();
+            Point2D<T> d2 = other.Direction();
+        
+            double dot = Dot(d1, d2);
+            double cross = d1.GetX()*d2.GetY() - d1.GetY()*d2.GetX();
+        
+            double angle = std::atan2(cross, dot);
+        
+            if (angle < 0)
+                angle += 2 * M_PI;
+        
+            return angle;
+        }
+
         double DistanceBetweenParallelLines(const Line2D& other) const
         {
             Point2D<T> diff = other.m_Start - m_Start;
