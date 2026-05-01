@@ -1,0 +1,237 @@
+#pragma once
+#include <cmath>
+#include <stdexcept>
+#include "Point2D.h"
+#include "Constants.h"
+#include "LoopDirection.h"
+
+namespace Primitives
+{
+    template<typename T>
+    class Arc2D
+    {
+    private:
+        Point2D<T> m_Center;
+        T m_Radius;
+        double m_StartAngle; // radians
+        double m_EndAngle;   // radians
+        LoopDirection m_Dir;
+
+        // -------------------------
+        // helpers
+        // -------------------------
+        static double TwoPi() { return 2.0 * M_PI; }
+
+        static double NormalizeAngle(double a)
+        {
+            double t = std::fmod(a, TwoPi());
+            if (t < 0) t += TwoPi();
+            return t;
+        }
+
+        static T Length(const Point2D<T>& v)
+        {
+            return std::sqrt(v.GetX() * v.GetX() + v.GetY() * v.GetY());
+        }
+
+        static Point2D<T> Normalize(const Point2D<T>& v)
+        {
+            T len = Length(v);
+            if (len < TOLERANCE)
+                throw std::runtime_error("Zero length vector");
+
+            return Point2D<T>(v.GetX() / len, v.GetY() / len);
+        }
+
+        static Point2D<T> PerpCCW(const Point2D<T>& v)
+        {
+            return Point2D<T>(-v.GetY(), v.GetX());
+        }
+
+        static Point2D<T> PerpCW(const Point2D<T>& v)
+        {
+            return Point2D<T>(v.GetY(), -v.GetX());
+        }
+
+        // signed sweep according to direction
+        double SweepAngle() const
+        {
+            double s = m_EndAngle - m_StartAngle;
+
+            if (m_Dir == LoopDirection::CCW)
+            {
+                if (s < 0) s += TwoPi();
+            }
+            else // CW
+            {
+                if (s > 0) s -= TwoPi();
+            }
+            return s;
+        }
+
+        bool IsAngleOnArc(double a) const
+        {
+            a = NormalizeAngle(a);
+            double s = NormalizeAngle(m_StartAngle);
+            double e = NormalizeAngle(m_EndAngle);
+
+            if (m_Dir == LoopDirection::CCW)
+            {
+                if (s <= e) return (a >= s - TOLERANCE && a <= e + TOLERANCE);
+                else        return (a >= s - TOLERANCE || a <= e + TOLERANCE);
+            }
+            else // CW
+            {
+                if (e <= s) return (a <= s + TOLERANCE && a >= e - TOLERANCE);
+                else        return (a <= s + TOLERANCE || a >= e - TOLERANCE);
+            }
+        }
+
+    public:
+        Arc2D(const Point2D<T>& center,
+              T radius,
+              double startAngle,
+              double endAngle,
+              LoopDirection dir)
+            : m_Center(center),
+              m_Radius(radius),
+              m_StartAngle(NormalizeAngle(startAngle)),
+              m_EndAngle(NormalizeAngle(endAngle)),
+              m_Dir(dir)
+        {
+            if (radius <= TOLERANCE)
+                throw std::runtime_error("Invalid radius");
+        }
+
+        // =========================
+        // getters
+        // =========================
+        Point2D<T> GetCenter() const { return m_Center; }
+        T GetRadius() const { return m_Radius; }
+        double GetStartAngle() const { return m_StartAngle; }
+        double GetEndAngle() const { return m_EndAngle; }
+        LoopDirection GetDirection() const { return m_Dir; }
+
+        // =========================
+        // points
+        // =========================
+        Point2D<T> PointAtAngle(double a) const
+        {
+            return Point2D<T>(
+                m_Center.GetX() + m_Radius * std::cos(a),
+                m_Center.GetY() + m_Radius * std::sin(a)
+            );
+        }
+
+        Point2D<T> StartPoint() const { return PointAtAngle(m_StartAngle); }
+        Point2D<T> EndPoint()   const { return PointAtAngle(m_EndAngle); }
+
+        // =========================
+        // tangents (OUTGOING semantics)
+        // =========================
+        Point2D<T> TangentAtStart() const
+        {
+            // along traversal
+            Point2D<T> r = Normalize(StartPoint() - m_Center);
+
+            return (m_Dir == LoopDirection::CCW)
+                ? Normalize(PerpCCW(r))
+                : Normalize(PerpCW(r));
+        }
+
+        Point2D<T> TangentAtEnd() const
+        {
+            // outgoing from end => reverse traversal
+            Point2D<T> r = Normalize(EndPoint() - m_Center);
+
+            return (m_Dir == LoopDirection::CCW)
+                ? Normalize(PerpCW(r))   // flipped
+                : Normalize(PerpCCW(r)); // flipped
+        }
+
+        Point2D<T> TangentAtPoint(const Point2D<T>& pt) const
+        {
+            Point2D<T> r = Normalize(pt - m_Center);
+
+            return (m_Dir == LoopDirection::CCW)
+                ? Normalize(PerpCCW(r))
+                : Normalize(PerpCW(r));
+        }
+
+        // =========================
+        // parameterization (0 → 1)
+        // =========================
+        Point2D<T> PointAtParameter(double t) const
+        {
+            double angle = m_StartAngle + t * SweepAngle();
+            return PointAtAngle(angle);
+        }
+
+        double ParameterOfPoint(const Point2D<T>& pt) const
+        {
+            double a = std::atan2(
+                pt.GetY() - m_Center.GetY(),
+                pt.GetX() - m_Center.GetX());
+
+            a = NormalizeAngle(a);
+            return (a - m_StartAngle) / SweepAngle();
+        }
+
+        // =========================
+        // queries
+        // =========================
+        double Length() const
+        {
+            return std::abs(SweepAngle()) * m_Radius;
+        }
+
+        Point2D<T> MidPoint() const
+        {
+            return PointAtParameter(0.5);
+        }
+
+        bool IsPointOnArc(const Point2D<T>& pt) const
+        {
+            T dist = Length(pt - m_Center);
+            if (std::fabs(dist - m_Radius) > TOLERANCE)
+                return false;
+
+            double a = std::atan2(
+                pt.GetY() - m_Center.GetY(),
+                pt.GetX() - m_Center.GetX());
+
+            return IsAngleOnArc(a);
+        }
+
+        // =========================
+        // transforms
+        // =========================
+        static Point2D<T> RotatePoint(
+            const Point2D<T>& pt,
+            const Point2D<T>& origin,
+            double angle)
+        {
+            double s = std::sin(angle);
+            double c = std::cos(angle);
+
+            double x = pt.GetX() - origin.GetX();
+            double y = pt.GetY() - origin.GetY();
+
+            return Point2D<T>(
+                origin.GetX() + x * c - y * s,
+                origin.GetY() + x * s + y * c
+            );
+        }
+
+        Arc2D RotateAbout(const Point2D<T>& origin, double angle) const
+        {
+            return Arc2D(
+                RotatePoint(m_Center, origin, angle),
+                m_Radius,
+                m_StartAngle + angle,
+                m_EndAngle + angle,
+                m_Dir
+            );
+        }
+    };
+}
