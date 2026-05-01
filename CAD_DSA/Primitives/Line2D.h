@@ -1,12 +1,23 @@
-
 #pragma once
 #include <cmath>
 #include <optional>
+#include <stdexcept>
+#include <algorithm>
+
 #include "Point2D.h"
 #include "Constants.h"
 
 namespace Primitives
 {
+    enum class LineRelation
+    {
+        NONE,
+        PARALLEL,
+        COLLINEAR,
+        INTERSECTING,
+        OVERLAPPING
+    };
+
     template<typename T>
     class Line2D
     {
@@ -14,6 +25,9 @@ namespace Primitives
         Point2D<T> m_Start;
         Point2D<T> m_End;
 
+        // =========================
+        // Math helpers
+        // =========================
         static T Dot(const Point2D<T>& a, const Point2D<T>& b)
         {
             return a.GetX() * b.GetX() + a.GetY() * b.GetY();
@@ -39,23 +53,23 @@ namespace Primitives
         }
 
     public:
-        Line2D(const Point2D<T>& i_start, const Point2D<T>& i_end)
-            : m_Start(i_start), m_End(i_end)
+        // =========================
+        // Constructor
+        // =========================
+        Line2D(const Point2D<T>& start, const Point2D<T>& end)
+            : m_Start(start), m_End(end)
         {
             if (Length(m_End - m_Start) < TOLERANCE)
                 throw std::runtime_error("Degenerate line");
         }
 
         // =========================
-        // Basic getters
+        // Basic
         // =========================
         Point2D<T> GetStart() const { return m_Start; }
         Point2D<T> GetEnd() const { return m_End; }
 
-        T Length() const
-        {
-            return Line2D::Length(m_End - m_Start);
-        }
+        T Length() const { return Length(m_End - m_Start); }
 
         Point2D<T> Direction() const
         {
@@ -63,7 +77,7 @@ namespace Primitives
         }
 
         // =========================
-        // Tangents (your API semantics)
+        // Tangents (your semantics)
         // =========================
         Point2D<T> TangentAtStart() const
         {
@@ -86,21 +100,47 @@ namespace Primitives
             );
         }
 
-        double ParameterOfPoint(const Point2D<T>& i_pt) const
+        double ParameterOfPoint(const Point2D<T>& pt) const
         {
             Point2D<T> d = m_End - m_Start;
-            Point2D<T> v = i_pt - m_Start;
-
-            return Dot(v, d) / Dot(d, d);
+            return Dot(pt - m_Start, d) / Dot(d, d);
         }
 
         // =========================
-        // Projection
+        // Projection / Closest
         // =========================
-        Point2D<T> ProjectPoint(const Point2D<T>& i_pt) const
+        Point2D<T> ProjectPoint(const Point2D<T>& pt) const
         {
-            double t = ParameterOfPoint(i_pt);
+            return PointAtParameter(ParameterOfPoint(pt));
+        }
+
+        Point2D<T> ClosestPoint(const Point2D<T>& pt) const
+        {
+            double t = ParameterOfPoint(pt);
+            t = std::max(0.0, std::min(1.0, t));
             return PointAtParameter(t);
+        }
+
+        double DistanceToPoint(const Point2D<T>& pt) const
+        {
+            return Length(pt - ClosestPoint(pt));
+        }
+
+        // =========================
+        // Point checks
+        // =========================
+        bool IsPointOnInfiniteLine(const Point2D<T>& pt) const
+        {
+            return std::fabs(Cross(m_End - m_Start, pt - m_Start)) < TOLERANCE;
+        }
+
+        bool IsPointOnLineSegment(const Point2D<T>& pt) const
+        {
+            if (!IsPointOnInfiniteLine(pt))
+                return false;
+
+            double t = ParameterOfPoint(pt);
+            return (t >= -TOLERANCE && t <= 1 + TOLERANCE);
         }
 
         // =========================
@@ -109,25 +149,13 @@ namespace Primitives
         Line2D ExtendAtStart(T dist) const
         {
             Point2D<T> dir = Normalize(m_Start - m_End);
-            return Line2D(
-                Point2D<T>(
-                    m_Start.GetX() + dir.GetX() * dist,
-                    m_Start.GetY() + dir.GetY() * dist
-                ),
-                m_End
-            );
+            return Line2D(m_Start + dir * dist, m_End);
         }
 
         Line2D ExtendAtEnd(T dist) const
         {
             Point2D<T> dir = Normalize(m_End - m_Start);
-            return Line2D(
-                m_Start,
-                Point2D<T>(
-                    m_End.GetX() + dir.GetX() * dist,
-                    m_End.GetY() + dir.GetY() * dist
-                )
-            );
+            return Line2D(m_Start, m_End + dir * dist);
         }
 
         // =========================
@@ -135,110 +163,116 @@ namespace Primitives
         // =========================
         Point2D<T> MidPoint() const
         {
-            return Point2D<T>(
-                (m_Start.GetX() + m_End.GetX()) / 2,
-                (m_Start.GetY() + m_End.GetY()) / 2
-            );
+            return (m_Start + m_End) * 0.5;
         }
 
         // =========================
-        // Angle between lines (radians)
+        // Relations
         // =========================
+        bool IsParallel(const Line2D& other) const
+        {
+            return std::fabs(Cross(Direction(), other.Direction())) < TOLERANCE;
+        }
+
+        bool IsPerpendicular(const Line2D& other) const
+        {
+            return std::fabs(Dot(Direction(), other.Direction())) < TOLERANCE;
+        }
+
         double AngleWith(const Line2D& other) const
         {
-            Point2D<T> d1 = Direction();
-            Point2D<T> d2 = other.Direction();
+            double d = Dot(Direction(), other.Direction());
+            d = std::max(-1.0, std::min(1.0, d));
+            return std::acos(d);
+        }
 
-            double dot = Dot(d1, d2);
-            dot = std::max(-1.0, std::min(1.0, dot));
-
-            return std::acos(dot);
+        double DistanceBetweenParallelLines(const Line2D& other) const
+        {
+            Point2D<T> diff = other.m_Start - m_Start;
+            return std::fabs(Cross(diff, Direction()));
         }
 
         // =========================
-        // Distance between parallel lines
+        // Normal / Offset
         // =========================
-        double ParallelDistance(const Line2D& other) const
+        Point2D<T> NormalCCW() const
         {
             Point2D<T> d = Direction();
-            Point2D<T> diff = other.m_Start - m_Start;
+            return Point2D<T>(-d.GetY(), d.GetX());
+        }
 
-            return std::fabs(Cross(diff, d));
+        Line2D Offset(T dist) const
+        {
+            Point2D<T> n = NormalCCW();
+            return Line2D(m_Start + n * dist, m_End + n * dist);
         }
 
         // =========================
-        // Rotation helpers
+        // Intersection (robust)
         // =========================
-        static Point2D<T> RotatePoint(
-            const Point2D<T>& pt,
-            const Point2D<T>& origin,
-            double angleRad)
-        {
-            double s = std::sin(angleRad);
-            double c = std::cos(angleRad);
-
-            double x = pt.GetX() - origin.GetX();
-            double y = pt.GetY() - origin.GetY();
-
-            return Point2D<T>(
-                origin.GetX() + x * c - y * s,
-                origin.GetY() + x * s + y * c
-            );
-        }
-
-        Line2D RotateFromStartCCW(double angleRad) const
-        {
-            return Line2D(
-                m_Start,
-                RotatePoint(m_End, m_Start, angleRad)
-            );
-        }
-
-        Line2D RotateFromStartCW(double angleRad) const
-        {
-            return Line2D(
-                m_Start,
-                RotatePoint(m_End, m_Start, -angleRad)
-            );
-        }
-
-        Line2D RotateAbout(const Point2D<T>& origin, double angleRad) const
-        {
-            return Line2D(
-                RotatePoint(m_Start, origin, angleRad),
-                RotatePoint(m_End, origin, angleRad)
-            );
-        }
-
-        // =========================
-        // Intersection
-        // =========================
-        std::optional<Point2D<T>> Intersection(const Line2D& other) const
+        LineRelation Intersect(
+            const Line2D& other,
+            std::optional<Point2D<T>>& outPoint) const
         {
             Point2D<T> r = m_End - m_Start;
             Point2D<T> s = other.m_End - other.m_Start;
 
             double denom = Cross(r, s);
+            Point2D<T> diff = other.m_Start - m_Start;
 
             if (std::fabs(denom) < TOLERANCE)
-                return std::nullopt; // Parallel
+            {
+                if (std::fabs(Cross(diff, r)) < TOLERANCE)
+                {
+                    // collinear → check overlap
+                    double t0 = Dot(diff, r) / Dot(r, r);
+                    double t1 = t0 + Dot(s, r) / Dot(r, r);
 
-            Point2D<T> diff = other.m_Start - m_Start;
+                    if (std::max(std::min(t0, t1), 0.0) <=
+                        std::min(std::max(t0, t1), 1.0))
+                    {
+                        return LineRelation::OVERLAPPING;
+                    }
+
+                    return LineRelation::COLLINEAR;
+                }
+
+                return LineRelation::PARALLEL;
+            }
 
             double t = Cross(diff, s) / denom;
             double u = Cross(diff, r) / denom;
 
-            if (t >= 0 && t <= 1 && u >= 0 && u <= 1)
+            if (t >= -TOLERANCE && t <= 1 + TOLERANCE &&
+                u >= -TOLERANCE && u <= 1 + TOLERANCE)
             {
-                return PointAtParameter(t);
+                outPoint = PointAtParameter(t);
+                return LineRelation::INTERSECTING;
             }
 
-            return std::nullopt;
+            return LineRelation::NONE;
         }
 
         bool IsIntersecting(const Line2D& other) const
         {
-            return Intersection(other).has_value();
+            std::optional<Point2D<T>> pt;
+            return Intersect(other, pt) == LineRelation::INTERSECTING;
+        }
+
+        // =========================
+        // Bounding box
+        // =========================
+        void BoundingBox(Point2D<T>& minPt, Point2D<T>& maxPt) const
+        {
+            minPt = Point2D<T>(
+                std::min(m_Start.GetX(), m_End.GetX()),
+                std::min(m_Start.GetY(), m_End.GetY())
+            );
+
+            maxPt = Point2D<T>(
+                std::max(m_Start.GetX(), m_End.GetX()),
+                std::max(m_Start.GetY(), m_End.GetY())
+            );
         }
     };
 }
