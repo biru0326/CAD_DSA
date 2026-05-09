@@ -121,7 +121,11 @@ namespace Primitives
             return PointAtParameter(t);
         }
 
-        double DistanceToPoint(const Point2D<T>& pt) const
+        double PerpendicularDistanceToPoint(const Point2D<T>& pt) const
+        {
+            return Length(pt - ProjectPoint(pt));
+        }
+        double DistanceToPointOnSegment(const Point2D<T>& pt) const
         {
             return Length(pt - ClosestPoint(pt));
         }
