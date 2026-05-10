@@ -102,6 +102,18 @@ namespace Primitives
 
         double ParameterOfPoint(const Point2D<T>& pt) const
         {
+            // Start with:
+            // P = start + t*d
+            // where:
+            // d = end - start
+            // P - start = t*d
+            // Since vectors cannot be divided, take dot product with d:
+            // (P - start) · d = (t*d) · d
+            // Using dot product properties:
+            // (P - start) · d = t * (d · d)
+            // Divide by scalar:
+            // t = ((P - start) · d) / (d · d)
+            
             Point2D<T> d = m_End - m_Start;
             return Dot(pt - m_Start, d) / Dot(d, d);
         }
@@ -121,10 +133,11 @@ namespace Primitives
             return PointAtParameter(t);
         }
 
-        double PerpendicularDistanceToPoint(const Point2D<T>& pt) const
+        double PerpendicularDistanceToPointOnInfiniteLine(const Point2D<T>& pt) const
         {
             return Length(pt - ProjectPoint(pt));
         }
+
         double DistanceToPointOnSegment(const Point2D<T>& pt) const
         {
             return Length(pt - ClosestPoint(pt));
@@ -192,6 +205,39 @@ namespace Primitives
 
         double AngleWithFull(const Line2D& other) const
         {
+            // Compute full CCW angle from this line to other line.
+            // d1 = normalized direction of current line
+            // d2 = normalized direction of other line
+            // Dot product gives:
+            // dot = d1 · d2 = cos(theta)
+            // Cross product in 2D gives:
+            // cross = d1.x*d2.y - d1.y*d2.x = sin(theta)
+            // So together:
+            // (dot, cross) = (cos(theta), sin(theta))
+            // which represents a unique point on the unit circle.
+            // Intuition:
+            // - dot   -> horizontal coordinate on unit circle
+            // - cross -> vertical coordinate on unit circle
+            // Using only dot product is insufficient because:
+            // cos(+theta) == cos(-theta)
+            // so dot alone cannot determine CW/CCW orientation
+            // or full 360-degree angle.
+            // Cross product preserves orientation:
+            // - cross > 0 -> CCW
+            // - cross < 0 -> CW
+            // atan2(y, x) reconstructs the full angle from the
+            // unit-circle coordinates:
+            // angle = atan2(sin(theta), cos(theta))
+            // Here:
+            // angle = atan2(cross, dot)
+            // atan2 returns angle in range:
+            // [-PI, +PI]
+            // Convert negative angles into full CCW range:
+            // [0, 2*PI]
+            // Final result:
+            // - always full CCW angle
+            // - range: [0, 2*PI]
+            
             Point2D<T> d1 = Direction();
             Point2D<T> d2 = other.Direction();
         
