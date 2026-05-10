@@ -254,6 +254,40 @@ namespace Primitives
 
         double DistanceBetweenParallelLines(const Line2D& other) const
         {
+            // Compute perpendicular distance between two parallel lines.
+            //
+            // Let:
+            //
+            // diff = vector between a point on this line and
+            //        a point on the other line.
+            //
+            // Direction() returns normalized line direction.
+            //
+            // Geometric meaning of 2D cross product:
+            //
+            // |a x b| = |a||b|sin(theta)
+            //
+            // Since Direction() is normalized:
+            //
+            // |Direction()| = 1
+            //
+            // Therefore:
+            //
+            // |Cross(diff, Direction())|
+            //
+            // becomes:
+            //
+            // |diff|sin(theta)
+            //
+            // which is exactly the perpendicular distance component
+            // between the two parallel lines.
+            //
+            // Intuition:
+            // - dot product extracts parallel component
+            // - cross product extracts perpendicular component
+            //
+            // fabs() is used because distance is always non-negative.
+            
             Point2D<T> diff = other.m_Start - m_Start;
             return std::fabs(Cross(diff, Direction()));
         }
